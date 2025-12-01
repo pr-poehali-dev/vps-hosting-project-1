@@ -24,6 +24,15 @@ interface ConsoleOutput {
   type: 'input' | 'output' | 'error';
 }
 
+interface Domain {
+  id: string;
+  name: string;
+  status: 'active' | 'pending' | 'expired';
+  dnsRecords: number;
+  sslStatus: 'valid' | 'expired' | 'none';
+  expiryDate: string;
+}
+
 export default function Index() {
   const [activeTab, setActiveTab] = useState<TabType>('servers');
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -32,6 +41,19 @@ export default function Index() {
   const [currentCommand, setCurrentCommand] = useState('');
   const consoleEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [servers, setServers] = useState<Server[]>([
+    { id: '1', name: 'Web-Server-01', status: 'online', cpu: 45, ram: 62, disk: 38, ip: '192.168.1.10', region: 'Москва' },
+    { id: '2', name: 'Database-01', status: 'online', cpu: 78, ram: 85, disk: 71, ip: '192.168.1.11', region: 'Санкт-Петербург' },
+    { id: '3', name: 'API-Server-01', status: 'loading', cpu: 12, ram: 24, disk: 15, ip: '192.168.1.12', region: 'Казань' },
+    { id: '4', name: 'Backup-Server', status: 'offline', cpu: 0, ram: 0, disk: 92, ip: '192.168.1.13', region: 'Новосибирск' },
+  ]);
+  const [domains] = useState<Domain[]>([
+    { id: '1', name: 'example.com', status: 'active', dnsRecords: 8, sslStatus: 'valid', expiryDate: '2025-12-15' },
+    { id: '2', name: 'api.example.com', status: 'active', dnsRecords: 4, sslStatus: 'valid', expiryDate: '2025-12-15' },
+    { id: '3', name: 'test-site.ru', status: 'active', dnsRecords: 12, sslStatus: 'valid', expiryDate: '2026-03-20' },
+    { id: '4', name: 'old-project.net', status: 'pending', dnsRecords: 3, sslStatus: 'none', expiryDate: '2025-01-10' },
+    { id: '5', name: 'expired-domain.com', status: 'expired', dnsRecords: 0, sslStatus: 'expired', expiryDate: '2024-11-01' },
+  ]);
 
   useEffect(() => {
     if (consoleOpen && selectedServer) {
@@ -77,13 +99,15 @@ export default function Index() {
         { text: '', type: 'output' },
       ]);
     } else if (lowerCmd === 'status') {
+      const currentServer = servers.find(s => s.id === selectedServer?.id);
       setConsoleHistory(prev => [...prev,
-        { text: `Server: ${selectedServer?.name}`, type: 'output' },
-        { text: `Status: ${getStatusText(selectedServer?.status || 'offline')}`, type: 'output' },
-        { text: `IP: ${selectedServer?.ip}`, type: 'output' },
-        { text: `Region: ${selectedServer?.region}`, type: 'output' },
+        { text: `Server: ${currentServer?.name}`, type: 'output' },
+        { text: `Status: ${getStatusText(currentServer?.status || 'offline')}`, type: 'output' },
+        { text: `IP: ${currentServer?.ip}`, type: 'output' },
+        { text: `Region: ${currentServer?.region}`, type: 'output' },
         { text: '', type: 'output' },
       ]);
+      setSelectedServer(currentServer || null);
     } else if (lowerCmd === 'ps') {
       setConsoleHistory(prev => [...prev,
         { text: 'PID  USER     TIME  COMMAND', type: 'output' },
@@ -140,12 +164,25 @@ export default function Index() {
     setCurrentCommand('');
   };
   
-  const servers: Server[] = [
-    { id: '1', name: 'Web-Server-01', status: 'online', cpu: 45, ram: 62, disk: 38, ip: '192.168.1.10', region: 'Москва' },
-    { id: '2', name: 'Database-01', status: 'online', cpu: 78, ram: 85, disk: 71, ip: '192.168.1.11', region: 'Санкт-Петербург' },
-    { id: '3', name: 'API-Server-01', status: 'loading', cpu: 12, ram: 24, disk: 15, ip: '192.168.1.12', region: 'Казань' },
-    { id: '4', name: 'Backup-Server', status: 'offline', cpu: 0, ram: 0, disk: 92, ip: '192.168.1.13', region: 'Новосибирск' },
-  ];
+  const handleRebootServer = (serverId: string) => {
+    setServers(prevServers => 
+      prevServers.map(server => 
+        server.id === serverId 
+          ? { ...server, status: 'loading' as const }
+          : server
+      )
+    );
+
+    setTimeout(() => {
+      setServers(prevServers => 
+        prevServers.map(server => 
+          server.id === serverId 
+            ? { ...server, status: 'online' as const }
+            : server
+        )
+      );
+    }, 3000);
+  };
 
   const menuItems = [
     { id: 'servers' as TabType, icon: 'Server', label: 'Серверы', count: 4 },
@@ -320,9 +357,15 @@ export default function Index() {
                         <Icon name="Terminal" size={16} className="mr-2" />
                         Консоль
                       </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => handleRebootServer(server.id)}
+                        disabled={server.status === 'loading'}
+                      >
                         <Icon name="RotateCw" size={16} className="mr-2" />
-                        Перезагрузить
+                        {server.status === 'loading' ? 'Перезагрузка...' : 'Перезагрузить'}
                       </Button>
                       <Button size="sm" variant="outline">
                         <Icon name="MoreVertical" size={16} />
@@ -456,10 +499,69 @@ export default function Index() {
             </div>
           )}
 
-          {(activeTab === 'domains' || activeTab === 'security' || activeTab === 'support') && (
+          {activeTab === 'domains' && (
+            <>
+              <div className="mb-6 flex gap-4">
+                <Button className="gradient-purple shadow-lg hover:shadow-xl transition-shadow">
+                  <Icon name="Plus" size={20} className="mr-2" />
+                  Добавить домен
+                </Button>
+                <Button variant="outline">
+                  <Icon name="RefreshCw" size={20} className="mr-2" />
+                  Обновить DNS
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {domains.map((domain) => (
+                  <Card key={domain.id} className="p-6 glass animate-fade-in hover:shadow-xl transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 gradient-blue rounded-lg flex items-center justify-center">
+                          <Icon name="Globe" size={24} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <h3 className="text-xl font-bold">{domain.name}</h3>
+                            <Badge variant={domain.status === 'active' ? 'default' : domain.status === 'pending' ? 'secondary' : 'destructive'}>
+                              {domain.status === 'active' ? 'Активен' : domain.status === 'pending' ? 'Ожидание' : 'Истёк'}
+                            </Badge>
+                          </div>
+                          <div className="flex gap-4 text-sm text-muted-foreground">
+                            <span>DNS записей: {domain.dnsRecords}</span>
+                            <span>•</span>
+                            <span className={domain.sslStatus === 'valid' ? 'text-green-500' : 'text-red-500'}>
+                              SSL: {domain.sslStatus === 'valid' ? 'Валиден' : domain.sslStatus === 'expired' ? 'Истёк' : 'Отсутствует'}
+                            </span>
+                            <span>•</span>
+                            <span>Истекает: {domain.expiryDate}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline">
+                          <Icon name="Settings" size={16} className="mr-2" />
+                          DNS
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Icon name="Shield" size={16} className="mr-2" />
+                          SSL
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Icon name="MoreVertical" size={16} />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+
+          {(activeTab === 'security' || activeTab === 'support') && (
             <Card className="p-12 glass text-center animate-fade-in">
               <div className="w-20 h-20 gradient-purple rounded-full flex items-center justify-center mx-auto mb-4">
-                <Icon name={activeTab === 'domains' ? 'Globe' : activeTab === 'security' ? 'Shield' : 'MessageCircle'} size={40} />
+                <Icon name={activeTab === 'security' ? 'Shield' : 'MessageCircle'} size={40} />
               </div>
               <h3 className="text-2xl font-bold mb-2">Раздел в разработке</h3>
               <p className="text-muted-foreground">
@@ -476,8 +578,17 @@ export default function Index() {
             <DialogTitle className="flex items-center gap-3">
               <Icon name="Terminal" size={24} />
               <span>Консоль сервера: {selectedServer?.name}</span>
-              <Badge variant={selectedServer?.status === 'online' ? 'default' : 'destructive'} className="ml-2">
-                {getStatusText(selectedServer?.status || 'offline')}
+              <Badge 
+                variant={
+                  servers.find(s => s.id === selectedServer?.id)?.status === 'online' 
+                    ? 'default' 
+                    : servers.find(s => s.id === selectedServer?.id)?.status === 'loading'
+                    ? 'secondary'
+                    : 'destructive'
+                } 
+                className="ml-2"
+              >
+                {getStatusText(servers.find(s => s.id === selectedServer?.id)?.status || 'offline')}
               </Badge>
             </DialogTitle>
           </DialogHeader>
