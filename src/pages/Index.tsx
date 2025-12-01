@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type TabType = 'servers' | 'monitoring' | 'domains' | 'billing' | 'api' | 'security' | 'support';
 
@@ -20,6 +21,8 @@ interface Server {
 
 export default function Index() {
   const [activeTab, setActiveTab] = useState<TabType>('servers');
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const [selectedServer, setSelectedServer] = useState<Server | null>(null);
   
   const servers: Server[] = [
     { id: '1', name: 'Web-Server-01', status: 'online', cpu: 45, ram: 62, disk: 38, ip: '192.168.1.10', region: 'Москва' },
@@ -189,7 +192,15 @@ export default function Index() {
                     </div>
 
                     <div className="flex gap-2 mt-6">
-                      <Button size="sm" variant="outline" className="flex-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="flex-1"
+                        onClick={() => {
+                          setSelectedServer(server);
+                          setConsoleOpen(true);
+                        }}
+                      >
                         <Icon name="Terminal" size={16} className="mr-2" />
                         Консоль
                       </Button>
@@ -342,6 +353,54 @@ export default function Index() {
           )}
         </main>
       </div>
+
+      <Dialog open={consoleOpen} onOpenChange={setConsoleOpen}>
+        <DialogContent className="max-w-4xl h-[600px] bg-background">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <Icon name="Terminal" size={24} />
+              <span>Консоль сервера: {selectedServer?.name}</span>
+              <Badge variant={selectedServer?.status === 'online' ? 'default' : 'destructive'} className="ml-2">
+                {getStatusText(selectedServer?.status || 'offline')}
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 bg-black rounded-lg p-4 font-mono text-sm overflow-auto">
+            <div className="text-green-400">
+              <p>root@{selectedServer?.name}:~# Welcome to VPS Cloud Console</p>
+              <p className="text-gray-400 mt-2">Server IP: {selectedServer?.ip}</p>
+              <p className="text-gray-400">Region: {selectedServer?.region}</p>
+              <p className="text-gray-400">Status: {getStatusText(selectedServer?.status || 'offline')}</p>
+              <div className="mt-4 space-y-2">
+                <p className="text-blue-400">System Resources:</p>
+                <p className="text-gray-300">CPU Usage: {selectedServer?.cpu}%</p>
+                <p className="text-gray-300">RAM Usage: {selectedServer?.ram}%</p>
+                <p className="text-gray-300">Disk Usage: {selectedServer?.disk}%</p>
+              </div>
+              <div className="mt-6">
+                <p className="text-yellow-400">root@{selectedServer?.name}:~#</p>
+                <span className="inline-block w-2 h-4 bg-green-400 ml-1 animate-pulse-glow"></span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-2 pt-4 border-t border-border">
+            <Button variant="outline" size="sm">
+              <Icon name="Download" size={16} className="mr-2" />
+              Скачать логи
+            </Button>
+            <Button variant="outline" size="sm">
+              <Icon name="Copy" size={16} className="mr-2" />
+              Копировать вывод
+            </Button>
+            <div className="flex-1" />
+            <Button variant="default" size="sm" onClick={() => setConsoleOpen(false)}>
+              Закрыть
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
