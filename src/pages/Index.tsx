@@ -71,6 +71,7 @@ export default function Index() {
         { text: '  uptime   - время работы сервера', type: 'output' },
         { text: '  free     - информация о памяти', type: 'output' },
         { text: '  df       - использование диска', type: 'output' },
+        { text: '  .op      - показать ASCII-арт', type: 'output' },
         { text: '  clear    - очистить консоль', type: 'output' },
         { text: '  help     - показать эту справку', type: 'output' },
         { text: '', type: 'output' },
@@ -108,6 +109,22 @@ export default function Index() {
       setConsoleHistory(prev => [...prev,
         { text: 'Filesystem     Size  Used Avail Use% Mounted on', type: 'output' },
         { text: `/dev/sda1      100G   ${selectedServer?.disk}G   ${100 - (selectedServer?.disk || 0)}G  ${selectedServer?.disk}% /`, type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    } else if (lowerCmd === '.op') {
+      setConsoleHistory(prev => [...prev,
+        { text: '', type: 'output' },
+        { text: '    ██████╗ ███████╗██╗  ██╗ █████╗ ██╗     ██╗', type: 'output' },
+        { text: '    ██╔══██╗██╔════╝██║  ██║██╔══██╗██║     ██║', type: 'output' },
+        { text: '    ██████╔╝█████╗  ███████║███████║██║     ██║', type: 'output' },
+        { text: '    ██╔═══╝ ██╔══╝  ██╔══██║██╔══██║██║     ██║', type: 'output' },
+        { text: '    ██║     ███████╗██║  ██║██║  ██║███████╗██║', type: 'output' },
+        { text: '    ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝', type: 'output' },
+        { text: '', type: 'output' },
+        { text: '           🚀 VPS Cloud - Поехали! 🚀', type: 'output' },
+        { text: '', type: 'output' },
+        { text: '    Три... два... один... ПОЕХАЛИ!', type: 'output' },
+        { text: '    Управляй серверами как настоящий космонавт!', type: 'output' },
         { text: '', type: 'output' },
       ]);
     } else if (lowerCmd === 'clear') {
