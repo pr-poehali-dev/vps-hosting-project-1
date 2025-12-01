@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Icon from '@/components/ui/icon';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -19,10 +19,109 @@ interface Server {
   region: string;
 }
 
+interface ConsoleOutput {
+  text: string;
+  type: 'input' | 'output' | 'error';
+}
+
 export default function Index() {
   const [activeTab, setActiveTab] = useState<TabType>('servers');
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [selectedServer, setSelectedServer] = useState<Server | null>(null);
+  const [consoleHistory, setConsoleHistory] = useState<ConsoleOutput[]>([]);
+  const [currentCommand, setCurrentCommand] = useState('');
+  const consoleEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (consoleOpen && selectedServer) {
+      setConsoleHistory([
+        { text: `Welcome to VPS Cloud Console`, type: 'output' },
+        { text: `Server IP: ${selectedServer.ip}`, type: 'output' },
+        { text: `Region: ${selectedServer.region}`, type: 'output' },
+        { text: `Status: ${getStatusText(selectedServer.status)}`, type: 'output' },
+        { text: '', type: 'output' },
+        { text: 'System Resources:', type: 'output' },
+        { text: `CPU Usage: ${selectedServer.cpu}%`, type: 'output' },
+        { text: `RAM Usage: ${selectedServer.ram}%`, type: 'output' },
+        { text: `Disk Usage: ${selectedServer.disk}%`, type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [consoleOpen, selectedServer]);
+
+  useEffect(() => {
+    consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [consoleHistory]);
+
+  const handleCommand = (cmd: string) => {
+    const trimmedCmd = cmd.trim();
+    if (!trimmedCmd) return;
+
+    setConsoleHistory(prev => [...prev, { text: `root@${selectedServer?.name}:~# ${trimmedCmd}`, type: 'input' }]);
+
+    const lowerCmd = trimmedCmd.toLowerCase();
+
+    if (lowerCmd === 'help') {
+      setConsoleHistory(prev => [...prev,
+        { text: 'Доступные команды:', type: 'output' },
+        { text: '  status   - показать статус сервера', type: 'output' },
+        { text: '  ps       - список процессов', type: 'output' },
+        { text: '  uptime   - время работы сервера', type: 'output' },
+        { text: '  free     - информация о памяти', type: 'output' },
+        { text: '  df       - использование диска', type: 'output' },
+        { text: '  clear    - очистить консоль', type: 'output' },
+        { text: '  help     - показать эту справку', type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    } else if (lowerCmd === 'status') {
+      setConsoleHistory(prev => [...prev,
+        { text: `Server: ${selectedServer?.name}`, type: 'output' },
+        { text: `Status: ${getStatusText(selectedServer?.status || 'offline')}`, type: 'output' },
+        { text: `IP: ${selectedServer?.ip}`, type: 'output' },
+        { text: `Region: ${selectedServer?.region}`, type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    } else if (lowerCmd === 'ps') {
+      setConsoleHistory(prev => [...prev,
+        { text: 'PID  USER     TIME  COMMAND', type: 'output' },
+        { text: '1    root     0:01  /sbin/init', type: 'output' },
+        { text: '102  root     0:03  nginx: master process', type: 'output' },
+        { text: '203  www-data 0:12  nginx: worker process', type: 'output' },
+        { text: '305  postgres 1:24  postgres: main process', type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    } else if (lowerCmd === 'uptime') {
+      setConsoleHistory(prev => [...prev,
+        { text: '15:42:31 up 12 days, 4:23, 1 user, load average: 0.42, 0.38, 0.35', type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    } else if (lowerCmd === 'free') {
+      setConsoleHistory(prev => [...prev,
+        { text: '              total        used        free      shared', type: 'output' },
+        { text: `Mem:          8192        ${selectedServer?.ram ? Math.round(8192 * selectedServer.ram / 100) : 0}        ${selectedServer?.ram ? 8192 - Math.round(8192 * selectedServer.ram / 100) : 8192}        128`, type: 'output' },
+        { text: 'Swap:         2048         0        2048', type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    } else if (lowerCmd === 'df') {
+      setConsoleHistory(prev => [...prev,
+        { text: 'Filesystem     Size  Used Avail Use% Mounted on', type: 'output' },
+        { text: `/dev/sda1      100G   ${selectedServer?.disk}G   ${100 - (selectedServer?.disk || 0)}G  ${selectedServer?.disk}% /`, type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    } else if (lowerCmd === 'clear') {
+      setConsoleHistory([]);
+    } else {
+      setConsoleHistory(prev => [...prev,
+        { text: `bash: ${trimmedCmd}: command not found`, type: 'error' },
+        { text: 'Введите "help" для списка доступных команд', type: 'output' },
+        { text: '', type: 'output' },
+      ]);
+    }
+
+    setCurrentCommand('');
+  };
   
   const servers: Server[] = [
     { id: '1', name: 'Web-Server-01', status: 'online', cpu: 45, ram: 62, disk: 38, ip: '192.168.1.10', region: 'Москва' },
@@ -366,22 +465,37 @@ export default function Index() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="flex-1 bg-black rounded-lg p-4 font-mono text-sm overflow-auto">
+          <div className="flex-1 bg-black rounded-lg p-4 font-mono text-sm overflow-auto" onClick={() => inputRef.current?.focus()}>
             <div className="text-green-400">
-              <p>root@{selectedServer?.name}:~# Welcome to VPS Cloud Console</p>
-              <p className="text-gray-400 mt-2">Server IP: {selectedServer?.ip}</p>
-              <p className="text-gray-400">Region: {selectedServer?.region}</p>
-              <p className="text-gray-400">Status: {getStatusText(selectedServer?.status || 'offline')}</p>
-              <div className="mt-4 space-y-2">
-                <p className="text-blue-400">System Resources:</p>
-                <p className="text-gray-300">CPU Usage: {selectedServer?.cpu}%</p>
-                <p className="text-gray-300">RAM Usage: {selectedServer?.ram}%</p>
-                <p className="text-gray-300">Disk Usage: {selectedServer?.disk}%</p>
+              {consoleHistory.map((line, idx) => (
+                <p 
+                  key={idx} 
+                  className={`${
+                    line.type === 'input' ? 'text-green-400' : 
+                    line.type === 'error' ? 'text-red-400' : 
+                    'text-gray-300'
+                  }`}
+                >
+                  {line.text}
+                </p>
+              ))}
+              <div className="flex items-center">
+                <span className="text-yellow-400">root@{selectedServer?.name}:~#</span>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={currentCommand}
+                  onChange={(e) => setCurrentCommand(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCommand(currentCommand);
+                    }
+                  }}
+                  className="flex-1 bg-transparent border-none outline-none text-green-400 ml-2"
+                  autoFocus
+                />
               </div>
-              <div className="mt-6">
-                <p className="text-yellow-400">root@{selectedServer?.name}:~#</p>
-                <span className="inline-block w-2 h-4 bg-green-400 ml-1 animate-pulse-glow"></span>
-              </div>
+              <div ref={consoleEndRef} />
             </div>
           </div>
           
