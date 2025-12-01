@@ -470,7 +470,7 @@ export default function Index() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm opacity-90 mb-1">Текущий баланс</p>
-                    <p className="text-5xl font-bold">₽12,450</p>
+                    <p className="text-5xl font-bold">₽706,450</p>
                   </div>
                   <Button variant="secondary" size="lg">
                     <Icon name="Plus" size={20} className="mr-2" />
